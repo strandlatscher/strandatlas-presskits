@@ -1,5 +1,45 @@
+"""Strandatlas Reel-Builder.
+
+REEL-CANON (gilt für alle Häuser):
+  * Volle Abdeckung: jedes Motiv erscheint genau EINMAL über die drei Standard-
+    Reels (Vorstellung / Ankommen / Im-Detail). Finale = die stärksten Motive
+    (darf wiederverwenden).
+  * Distinkte Bookends: Opener- und Close-Motive sind über alle Reels verschieden;
+    Opener != Close-Subjekt innerhalb eines Reels (keine zwei gleichartigen Shots
+    als Klammer, z. B. nicht zweimal Verala-Dämmerung).
+  * OPENER-REGEL: jedes Reel öffnet mit ZWEI starken Sehnsuchtsmotiven in Folge
+    (kategorie-gemischt). Keine zwei Reels teilen dieselbe Opener-Konstellation
+    (= das ungeordnete Paar) ODER dieselbe Reihenfolge. In der Praxis: jedes
+    Opener-Paar ist als Menge einmalig; das verbietet zugleich die bloße Umkehrung.
+  * Mittelteil: greedy, nie zwei gleiche Kategorien direkt hintereinander.
+
+`assert_opener_rule(openers_by_reel, strong=None)` prüft die Opener-Regel maschinell.
+"""
 import glob, os, subprocess, cairosvg
 from PIL import Image, ImageOps
+
+def assert_opener_rule(openers_by_reel, strong=None):
+    """openers_by_reel: {reel_name: (m1, m2)}. Gibt Liste von Verstößen zurück ([] = ok).
+    strong (optional): Menge erlaubter 'starker Sehnsuchts'-Motive für die Kontrolle."""
+    issues=[]
+    seen_sets={}; seen_ord={}
+    for name, op in openers_by_reel.items():
+        if len(op)!=2:
+            issues.append(f"{name}: Opener muss genau zwei Motive haben, hat {len(op)}"); continue
+        if op[0]==op[1]:
+            issues.append(f"{name}: Opener-Motive identisch ({op[0]})")
+        s=frozenset(op)
+        if s in seen_sets:
+            issues.append(f"{name}: Opener-Konstellation {set(op)} schon in {seen_sets[s]}")
+        else: seen_sets[s]=name
+        if tuple(op) in seen_ord:
+            issues.append(f"{name}: Opener-Reihenfolge {tuple(op)} schon in {seen_ord[tuple(op)]}")
+        else: seen_ord[tuple(op)]=name
+        if strong is not None:
+            for m in op:
+                if m not in strong:
+                    issues.append(f"{name}: Opener-Motiv {m} ist kein starkes Sehnsuchtsmotiv")
+    return issues
 CREAM="#F6F1E6"; GOLDL="#EBD9B0"; NAVY="#1E2A38"; DARK="#070c14"
 W,H=1080,1920; FPS=30; OPEN=1.8; MID=0.7; CLOSE=3.2; ZMAX=1.08
 def gf(k):
